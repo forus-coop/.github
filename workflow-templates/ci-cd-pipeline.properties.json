@@ -1,0 +1,7 @@
+{
+  "name": "CI/CD Pipeline",
+  "description": "Complete CI/CD pipeline for building Docker images and deploying to Kubernetes with Helm",
+  "iconName": "rocket",
+  "categories": ["Deployment", "Kubernetes", "Docker"],
+  "filePatterns": ["Dockerfile", "helm/**"]
+} 

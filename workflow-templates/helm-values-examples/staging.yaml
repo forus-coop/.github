@@ -1,0 +1,38 @@
+# Example Helm values file for staging environment
+replicaCount: 2
+
+image:
+  repository: ${ECR_REGISTRY}/${APP_NAME}
+  # tag will be set by the workflow
+  pullPolicy: Always
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+  hosts:
+    - host: "${APP_NAME}.staging.example.com"
+      paths:
+        - path: /
+          pathType: Prefix
+
+env:
+  - name: NODE_ENV
+    value: "staging"
+  - name: LOG_LEVEL
+    value: "info"
+
+# Additional staging-specific configuration
+config:
+  debug: false
+  featureFlags:
+    newFeature: true 

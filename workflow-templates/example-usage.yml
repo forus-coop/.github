@@ -1,0 +1,103 @@
+name: CI/CD Pipeline
+
+# This is an example of how to use the reusable workflows in your repository
+# When creating a new repository with a CI/CD pipeline, copy this file to .github/workflows/ci-cd.yml
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+      - master
+  release:
+    types: [prereleased, released]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Commit SHA, Branch or Tag to deploy'
+        required: false
+        default: ''
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - sandbox
+          - staging
+          - production
+      app_name:
+        description: 'Name of the app (defaults to repo name)'
+        required: false
+      namespace:
+        description: 'Kubernetes namespace (defaults to environment name)'
+        required: false
+
+jobs:
+  determine-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      ref: ${{ steps.set-ref.outputs.ref }}
+    steps:
+      - name: Set environment based on event
+        id: set-env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "release" && "${{ github.event.action }}" == "released" ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "release" && "${{ github.event.action }}" == "prereleased" ]]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.merged }}" == "true" ]]; then
+            echo "environment=sandbox" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/master" || "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=sandbox" >> $GITHUB_OUTPUT
+          else
+            echo "environment=skip" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set reference (SHA, branch, tag)
+        id: set-ref
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.ref }}" != "" ]]; then
+            echo "ref=${{ github.event.inputs.ref }}" >> $GITHUB_OUTPUT
+          else
+            echo "ref=${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+
+  build:
+    needs: determine-environment
+    if: needs.determine-environment.outputs.environment != 'skip'
+    uses: ./.github/workflows/docker-build-push.yml
+    with:
+      image_tag: ${{ needs.determine-environment.outputs.ref }}
+    secrets: inherit
+
+  deploy:
+    needs: [determine-environment, build]
+    if: needs.determine-environment.outputs.environment != 'skip'
+    uses: ./.github/workflows/helm-deploy.yml
+    with:
+      environment: ${{ needs.determine-environment.outputs.environment }}
+      app_name: ${{ github.event.inputs.app_name || github.event.repository.name }}
+      namespace: ${{ github.event.inputs.namespace || needs.determine-environment.outputs.environment }}
+      image_tag: ${{ needs.determine-environment.outputs.ref }}
+    secrets: inherit
+
+# Custom configuration options:
+# 
+# To use a custom Dockerfile path:
+# uses: ./.github/workflows/docker-build-push.yml
+# with:
+#   docker_build_dir: './app'
+#   dockerfile_path: 'Dockerfile.prod'
+#
+# To use a custom Helm chart:
+# uses: ./.github/workflows/helm-deploy.yml
+# with:
+#   helm_chart: 'oci://ghcr.io/myorg/mychart'
+#   helm_values_file: './helm/custom/${{ needs.determine-environment.outputs.environment }}.yaml' 

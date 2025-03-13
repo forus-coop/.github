@@ -1,0 +1,38 @@
+# Example Helm values file for sandbox environment
+replicaCount: 1
+
+image:
+  repository: ${ECR_REGISTRY}/${APP_NAME}
+  # tag will be set by the workflow
+  pullPolicy: Always
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+  hosts:
+    - host: "${APP_NAME}.sandbox.example.com"
+      paths:
+        - path: /
+          pathType: Prefix
+
+env:
+  - name: NODE_ENV
+    value: "development"
+  - name: LOG_LEVEL
+    value: "debug"
+
+# Additional sandbox-specific configuration
+config:
+  debug: true
+  featureFlags:
+    newFeature: true 

@@ -1,0 +1,47 @@
+# Example Helm values file for production environment
+replicaCount: 3
+
+image:
+  repository: ${ECR_REGISTRY}/${APP_NAME}
+  # tag will be set by the workflow
+  pullPolicy: IfNotPresent
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 1000m
+    memory: 1Gi
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: "${APP_NAME}.example.com"
+      paths:
+        - path: /
+          pathType: Prefix
+
+env:
+  - name: NODE_ENV
+    value: "production"
+  - name: LOG_LEVEL
+    value: "warn"
+
+# Additional production-specific configuration
+config:
+  debug: false
+  featureFlags:
+    newFeature: false  # Disabled in production
+
+# High availability settings
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80 
