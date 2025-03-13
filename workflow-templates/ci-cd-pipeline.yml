@@ -93,7 +93,8 @@ jobs:
     uses: forus-coop/.github/.github/workflows/semver-release.yml@main
     with:
       release_type: ${{ github.event.inputs.release_type || 'auto' }}
-      prerelease: ${{ needs.determine-environment.outputs.prerelease }}
+      # Convert string 'true'/'false' to boolean true/false
+      prerelease: ${{ needs.determine-environment.outputs.prerelease == 'true' }}
       release_branch: ${{ github.ref_name }}
       runner_group: ${{ needs.determine-environment.outputs.environment }}
     secrets: inherit
