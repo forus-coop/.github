@@ -57,7 +57,8 @@ on:
 
 jobs:
   determine-environment:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: sandbox
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
       ref: ${{ steps.set-ref.outputs.ref }}
@@ -94,6 +95,7 @@ jobs:
     uses: forus-coop/.github/.github/workflows/docker-build-push.yml@main
     with:
       image_tag: ${{ needs.determine-environment.outputs.ref }}
+      runner_group: ${{ needs.determine-environment.outputs.environment }}
     secrets: inherit
 
   deploy:
@@ -123,7 +125,9 @@ curl -o helm/production.yaml https://raw.githubusercontent.com/forus-coop/.githu
 
 Edit the values files to customize them for your application's needs.
 
-## Step 4: Set Up GitHub Environments
+## Step 4: Set Up GitHub Environments and Self-Hosted Runners
+
+### GitHub Environments
 
 In your repository settings, create the following environments:
 1. sandbox
@@ -134,6 +138,16 @@ For each environment, you can configure:
 - Environment-specific secrets
 - Required reviewers for deployments
 - Deployment branch restrictions
+
+### Self-Hosted Runners
+
+The workflows use self-hosted runners organized into groups. Ensure that you have runner groups configured that match the environment names:
+
+1. **sandbox** - For sandbox environment deployments
+2. **staging** - For staging environment deployments
+3. **production** - For production environment deployments
+
+Each runner group should have at least one self-hosted runner registered and active. The workflows will automatically run jobs on the appropriate runner group based on the target environment.
 
 ## Step 5: Set Up the Required Secrets
 
@@ -178,6 +192,7 @@ build:
     image_tag: ${{ needs.determine-environment.outputs.ref }}
     docker_build_dir: './app'  # If your Dockerfile is in a subdirectory
     dockerfile_path: 'Dockerfile.prod'  # If you have a specific Dockerfile
+    runner_group: ${{ needs.determine-environment.outputs.environment }}  # Runner group to use
   secrets: inherit
 ```
 
@@ -213,4 +228,5 @@ If you encounter issues with the workflow:
 3. Verify that your Dockerfile builds successfully locally
 4. Check that your Helm values files are correctly formatted
 5. Ensure that the AWS ECR repository exists and is accessible
-6. Verify that the Kubernetes cluster is accessible with the provided kubeconfig 
+6. Verify that the Kubernetes cluster is accessible with the provided kubeconfig
+7. Confirm that the self-hosted runners are properly configured and online in the correct runner groups 

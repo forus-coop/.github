@@ -38,7 +38,8 @@ on:
 
 jobs:
   determine-environment:
-    runs-on: ubuntu-latest
+    runs-on: 
+      group: sandbox
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
       ref: ${{ steps.set-ref.outputs.ref }}
@@ -75,6 +76,7 @@ jobs:
     uses: forus-coop/.github/.github/workflows/docker-build-push.yml@main
     with:
       image_tag: ${{ needs.determine-environment.outputs.ref }}
+      runner_group: ${{ needs.determine-environment.outputs.environment }}
     secrets: inherit
 
   deploy:
@@ -95,9 +97,12 @@ jobs:
 # with:
 #   docker_build_dir: './app'
 #   dockerfile_path: 'Dockerfile.prod'
+#   image_tag: ${{ github.sha }}
+#   runner_group: sandbox
 #
 # To use a custom Helm chart:
 # uses: forus-coop/.github/.github/workflows/helm-deploy.yml@main
 # with:
+#   environment: production
 #   helm_chart: 'oci://ghcr.io/myorg/mychart'
 #   helm_values_file: './helm/custom/${{ needs.determine-environment.outputs.environment }}.yaml' 

@@ -44,7 +44,8 @@ on:
 
 jobs:
   deploy:
-    runs-on: ${{ inputs.environment == 'production' && 'prod-runner' || inputs.environment }}
+    runs-on:
+      group: ${{ inputs.environment }}
     environment: ${{ inputs.environment }}
 
     steps:

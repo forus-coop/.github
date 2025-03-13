@@ -26,6 +26,7 @@ jobs:
     uses: forus-coop/.github/.github/workflows/docker-build-push.yml@main
     with:
       image_tag: ${{ github.sha }}
+      runner_group: sandbox
     secrets: inherit
 
   deploy:
@@ -78,6 +79,18 @@ The Helm values files include:
 - Environment variables
 - Autoscaling settings (for production)
 
+### Self-Hosted Runners
+
+The workflows are designed to use self-hosted runners with specific group names:
+
+1. Docker build jobs run on the runner group specified by the `runner_group` parameter (defaults to 'sandbox')
+2. Deployment jobs run on the runner group with the same name as the target environment
+
+Ensure that you have self-hosted runners set up in the following runner groups:
+- `sandbox` - For sandbox environment
+- `staging` - For staging environment
+- `production` - For production environment
+
 ### Secrets
 
 The workflows require the following secrets to be set at the organization or repository level:
@@ -119,6 +132,7 @@ with:
   docker_build_dir: './app'
   dockerfile_path: 'Dockerfile.prod'
   image_tag: ${{ github.sha }}
+  runner_group: sandbox
 
 # Custom Helm deployment
 uses: forus-coop/.github/.github/workflows/helm-deploy.yml@main

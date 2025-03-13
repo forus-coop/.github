@@ -35,7 +35,8 @@ on:
 
 jobs:
   determine-environment:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: sandbox
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
       ref: ${{ steps.set-ref.outputs.ref }}
@@ -69,15 +70,16 @@ jobs:
   build:
     needs: determine-environment
     if: needs.determine-environment.outputs.environment != 'skip'
-    uses: ./.github/workflows/docker-build-push.yml
+    uses: forus-coop/.github/.github/workflows/docker-build-push.yml@main
     with:
       image_tag: ${{ needs.determine-environment.outputs.ref }}
+      runner_group: ${{ needs.determine-environment.outputs.environment }}
     secrets: inherit
 
   deploy:
     needs: [determine-environment, build]
     if: needs.determine-environment.outputs.environment != 'skip'
-    uses: ./.github/workflows/helm-deploy.yml
+    uses: forus-coop/.github/.github/workflows/helm-deploy.yml@main
     with:
       environment: ${{ needs.determine-environment.outputs.environment }}
       app_name: ${{ github.event.inputs.app_name || github.event.repository.name }}
