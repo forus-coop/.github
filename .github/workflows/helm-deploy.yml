@@ -26,7 +26,7 @@ on:
         description: "Path to the Helm values file"
         required: false
         type: string
-        default: "./helm/${{ inputs.environment }}.yaml"
+        default: "./helm/values.yaml"
       image_tag:
         description: "Tag of the Docker image to deploy"
         required: true

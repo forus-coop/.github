@@ -85,4 +85,5 @@ jobs:
       app_name: ${{ github.event.inputs.app_name || github.event.repository.name }}
       namespace: ${{ github.event.inputs.namespace || needs.determine-environment.outputs.environment }}
       image_tag: ${{ needs.determine-environment.outputs.ref }}
+      helm_values_file: './helm/${{ needs.determine-environment.outputs.environment }}.yaml'
     secrets: inherit 
