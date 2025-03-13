@@ -77,7 +77,8 @@ jobs:
     with:
       image_tag: ${{ needs.determine-environment.outputs.ref }}
       runner_group: ${{ needs.determine-environment.outputs.environment }}
-    secrets: inherit
+    secrets:
+      inherit: true
 
   deploy:
     needs: [determine-environment, build]
@@ -98,7 +99,9 @@ jobs:
 #   docker_build_dir: './app'
 #   dockerfile_path: 'Dockerfile.prod'
 #   image_tag: ${{ github.sha }}
-#   runner_group: sandbox
+# secrets:
+#   SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }} # For Ruby applications
+#   inherit: true
 #
 # To use a custom Helm chart:
 # uses: forus-coop/.github/.github/workflows/helm-deploy.yml@main

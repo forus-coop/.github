@@ -100,6 +100,10 @@ The workflows require the following secrets to be set at the organization or rep
   - ORG_KUBECTL_CONFIG_BASE64_SANDBOX
   - ORG_KUBECTL_CONFIG_BASE64_STAGING
   - ORG_KUBECTL_CONFIG_BASE64_PRODUCTION
+- For Ruby applications using GitHub Packages:
+  - SECRET_KEY_BASE - Used during Docker build to access private Ruby gems
+
+> **Security Note**: Always pass sensitive values like SECRET_KEY_BASE as secrets rather than inputs. The docker-build-push workflow is configured to accept this secret and pass it securely to the Docker build process.
 
 > **Important**: GitHub Actions doesn't support dynamic secret names with string concatenation. The workflow uses conditional steps to access the appropriate secret for each environment.
 
@@ -133,6 +137,9 @@ with:
   dockerfile_path: 'Dockerfile.prod'
   image_tag: ${{ github.sha }}
   runner_group: sandbox
+secrets:
+  SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }} # For Ruby applications
+  inherit: true
 
 # Custom Helm deployment
 uses: forus-coop/.github/.github/workflows/helm-deploy.yml@main
