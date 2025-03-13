@@ -114,5 +114,5 @@ jobs:
             --wait \
             --atomic \
             --namespace=${{ inputs.namespace }} \
-            --set tag=${{ inputs.image_tag }} \
+            --set image.tag=${{ inputs.image_tag }} \
             --values=${{ inputs.helm_values_file }}
