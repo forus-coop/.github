@@ -7,6 +7,11 @@ on:
         description: "Environment to deploy to (sandbox, staging, production)"
         required: true
         type: string
+      app_name:
+        description: "Name of the app to deploy"
+        required: false
+        type: string
+        default: ${{ github.event.repository.name }}
       namespace:
         description: "Kubernetes namespace to deploy to"
         required: false
