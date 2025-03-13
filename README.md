@@ -33,7 +33,6 @@ jobs:
     uses: forus-coop/.github/.github/workflows/helm-deploy.yml@main
     with:
       environment: production
-      app_name: my-app
       image_tag: ${{ github.sha }}
     secrets: inherit
 ```
@@ -78,6 +77,19 @@ The Helm values files include:
 - Ingress settings
 - Environment variables
 - Autoscaling settings (for production)
+
+### Repository and Application Naming
+
+The workflows automatically format repository names to ensure consistent naming conventions:
+
+- **ECR Repository Names**: The repository name is converted to lowercase with underscores replaced by hyphens.
+  - Example: A repository named "My_App_Service" becomes "my-app-service" in ECR.
+
+- **Helm Release Names**: The repository name is similarly formatted for Helm releases.
+  - The same hyphenated, lowercase format is used for deployment.
+  - This ensures consistency between your container images and Helm deployments.
+
+This automatic formatting maintains a consistent naming convention across all environments and services.
 
 ### Self-Hosted Runners
 

@@ -29,9 +29,6 @@ on:
           - sandbox
           - staging
           - production
-      app_name:
-        description: 'Name of the app (defaults to repo name)'
-        required: false
       namespace:
         description: 'Kubernetes namespace (defaults to environment name)'
         required: false
@@ -78,6 +75,8 @@ jobs:
       image_tag: ${{ needs.determine-environment.outputs.ref }}
       runner_group: ${{ needs.determine-environment.outputs.environment }}
     secrets:
+      # For Ruby applications using GitHub Packages, uncomment this line
+      # SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
       inherit: true
 
   deploy:
@@ -86,7 +85,6 @@ jobs:
     uses: forus-coop/.github/.github/workflows/helm-deploy.yml@main
     with:
       environment: ${{ needs.determine-environment.outputs.environment }}
-      app_name: ${{ github.event.inputs.app_name || github.event.repository.name }}
       namespace: ${{ github.event.inputs.namespace || needs.determine-environment.outputs.environment }}
       image_tag: ${{ needs.determine-environment.outputs.ref }}
     secrets: inherit
@@ -99,6 +97,7 @@ jobs:
 #   docker_build_dir: './app'
 #   dockerfile_path: 'Dockerfile.prod'
 #   image_tag: ${{ github.sha }}
+#   runner_group: sandbox
 # secrets:
 #   SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }} # For Ruby applications
 #   inherit: true

@@ -7,11 +7,6 @@ on:
         description: "Environment to deploy to (sandbox, staging, production)"
         required: true
         type: string
-      app_name:
-        description: "Name of the app to deploy"
-        required: false
-        type: string
-        default: ${{ github.event.repository.name }}
       namespace:
         description: "Kubernetes namespace to deploy to"
         required: false
@@ -51,6 +46,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Format app name (repository name)
+        id: format-app-name
+        run: |
+          # Replace underscores and other non-hyphen characters with hyphens
+          ORIGINAL_REPO="${{ github.event.repository.name }}"
+          FORMATTED_APP=$(echo "$ORIGINAL_REPO" | tr '_' '-' | tr '[:upper:]' '[:lower:]')
+          echo "formatted_app=$FORMATTED_APP" >> $GITHUB_OUTPUT
+          echo "Original repository name: $ORIGINAL_REPO, Formatted app name: $FORMATTED_APP"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -100,7 +104,7 @@ jobs:
 
       - name: Deploy with Helm
         run: |
-          helm upgrade ${{ inputs.app_name }} ${{ inputs.helm_chart }} \
+          helm upgrade ${{ steps.format-app-name.outputs.formatted_app }} ${{ inputs.helm_chart }} \
             --install \
             --wait \
             --atomic \
