@@ -75,6 +75,49 @@ jobs:
       inherit: true
 ```
 
+### Semantic Versioning
+
+A workflow for automatically determining and creating semantic version releases based on conventional commits or explicit version types. This workflow:
+
+- Determines the next version number (major.minor.patch)
+- Creates GitHub releases with appropriate tags
+- Generates release notes from commit messages
+- Updates pre-release status when moving to production
+- Provides version outputs that can be used for Docker image tagging and Helm deployments
+
+The workflow runs automatically for all deployments and maintains consistent version numbers across environments, only changing the pre-release status in GitHub.
+
+#### How to Reference in Your Repository
+
+```yaml
+jobs:
+  create-version:
+    uses: forus-coop/.github/.github/workflows/semver-release.yml@main
+    with:
+      # Type of release - auto detects from commit messages, or specify major/minor/patch
+      release_type: "auto"
+      # Whether this is a prerelease - typically true for sandbox/staging
+      prerelease: false
+      # Branch to create the release from
+      release_branch: "main"
+    secrets: inherit
+    
+  build:
+    needs: [create-version]
+    uses: forus-coop/.github/.github/workflows/docker-build-push.yml@main
+    with:
+      # Use the semantic version for the image tag
+      image_tag: ${{ needs.create-version.outputs.version_tag }}
+```
+
+#### Conventional Commit Format
+
+For automatic version determination, use the following commit message format:
+
+- `feat: add new feature` (increments minor version)
+- `fix: fix bug` (increments patch version)
+- `breaking: major change` (increments major version)
+
 #### How to Set Up in a New Repository
 
 1. Navigate to your repository
@@ -206,6 +249,26 @@ with:
 - **Create pre-release**: Builds and deploys to staging environment
 - **Create release**: Builds and deploys to production environment
 - **Manual trigger**: Allows selecting environment and other parameters
+
+### Semantic Versioning Behavior
+
+The CI/CD pipeline creates semantic versioned releases automatically for all deployments:
+
+1. The version number is determined from conventional commits or can be manually specified
+2. The same version number is used across all environments for consistency 
+3. Pre-release status in GitHub is set based on the environment:
+   - **Production deployments**: Full releases (no pre-release flag)
+   - **Sandbox/staging deployments**: Pre-releases (with pre-release flag)
+
+When a release is promoted from staging to production:
+- The same version tag is retained
+- The pre-release flag is removed
+- The GitHub release is updated rather than creating a new one
+
+This approach ensures that:
+- The same image tag is used consistently across environments
+- Versioning is automatic but can be overridden when needed
+- Release history and notes are preserved when promoting to production
 
 ## Compatibility
 

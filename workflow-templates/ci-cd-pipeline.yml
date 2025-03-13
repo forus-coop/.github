@@ -22,12 +22,21 @@ on:
           - sandbox
           - staging
           - production
-      app_name:
-        description: 'Name of the app (defaults to repo name)'
-        required: false
       namespace:
         description: 'Kubernetes namespace (defaults to environment name)'
         required: false
+      release_type:
+        description: 'Type of release (auto, major, minor, patch)'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - major
+          - minor
+          - patch
+  push:
+    branches: [main, master]
 
 jobs:
   determine-environment:
@@ -36,22 +45,36 @@ jobs:
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
       ref: ${{ steps.set-ref.outputs.ref }}
+      prerelease: ${{ steps.set-env.outputs.prerelease }}
     steps:
       - name: Set environment based on event
         id: set-env
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+            
+            # Set prerelease flag based on environment
+            if [[ "${{ github.event.inputs.environment }}" == "production" ]]; then
+              echo "prerelease=false" >> $GITHUB_OUTPUT
+            else
+              echo "prerelease=true" >> $GITHUB_OUTPUT
+            fi
+            
           elif [[ "${{ github.event_name }}" == "release" && "${{ github.event.action }}" == "released" ]]; then
             echo "environment=production" >> $GITHUB_OUTPUT
+            echo "prerelease=false" >> $GITHUB_OUTPUT
           elif [[ "${{ github.event_name }}" == "release" && "${{ github.event.action }}" == "prereleased" ]]; then
             echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "prerelease=true" >> $GITHUB_OUTPUT
           elif [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.merged }}" == "true" ]]; then
             echo "environment=sandbox" >> $GITHUB_OUTPUT
+            echo "prerelease=true" >> $GITHUB_OUTPUT
           elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/master" || "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "environment=sandbox" >> $GITHUB_OUTPUT
+            echo "prerelease=true" >> $GITHUB_OUTPUT
           else
             echo "environment=skip" >> $GITHUB_OUTPUT
+            echo "prerelease=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Set reference (SHA, branch, tag)
@@ -63,23 +86,36 @@ jobs:
             echo "ref=${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
 
-  build:
+  # Create or update semantic version for all deployments
+  create-version:
     needs: determine-environment
+    if: needs.determine-environment.outputs.environment != 'skip'
+    uses: forus-coop/.github/.github/workflows/semver-release.yml@main
+    with:
+      release_type: ${{ github.event.inputs.release_type || 'auto' }}
+      prerelease: ${{ needs.determine-environment.outputs.prerelease }}
+      release_branch: ${{ github.ref_name }}
+      runner_group: ${{ needs.determine-environment.outputs.environment }}
+    secrets: inherit
+
+  build:
+    needs: [determine-environment, create-version]
     if: needs.determine-environment.outputs.environment != 'skip'
     uses: forus-coop/.github/.github/workflows/docker-build-push.yml@main
     with:
-      image_tag: ${{ needs.determine-environment.outputs.ref }}
+      # Use the semantic version tag for consistent versioning
+      image_tag: ${{ needs.create-version.outputs.version_tag }}
       runner_group: ${{ needs.determine-environment.outputs.environment }}
     secrets: inherit
 
   deploy:
-    needs: [determine-environment, build]
+    needs: [determine-environment, build, create-version]
     if: needs.determine-environment.outputs.environment != 'skip'
     uses: forus-coop/.github/.github/workflows/helm-deploy.yml@main
     with:
       environment: ${{ needs.determine-environment.outputs.environment }}
-      app_name: ${{ github.event.inputs.app_name || github.event.repository.name }}
       namespace: ${{ github.event.inputs.namespace || needs.determine-environment.outputs.environment }}
-      image_tag: ${{ needs.determine-environment.outputs.ref }}
+      # Use the semantic version tag for consistent versioning
+      image_tag: ${{ needs.create-version.outputs.version_tag }}
       helm_values_file: './helm/${{ needs.determine-environment.outputs.environment }}.yaml'
     secrets: inherit 

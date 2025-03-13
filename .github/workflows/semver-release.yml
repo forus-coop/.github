@@ -1,0 +1,217 @@
+name: Semantic Versioning Release
+
+on:
+  workflow_call:
+    inputs:
+      release_type:
+        description: "Type of release (auto, major, minor, patch)"
+        required: false
+        type: string
+        default: "auto"
+      prerelease:
+        description: "Whether this is a prerelease"
+        required: false
+        type: boolean
+        default: false
+      release_branch:
+        description: "Branch to create the release from"
+        required: false
+        type: string
+        default: "main"
+      tag_prefix:
+        description: "Prefix for version tags (e.g., 'v')"
+        required: false
+        type: string
+        default: "v"
+      runner_group:
+        description: "Runner group to use"
+        required: false
+        type: string
+        default: "sandbox"
+    outputs:
+      version:
+        description: "The determined version number (without prefix)"
+        value: ${{ jobs.determine-version.outputs.version }}
+      version_tag:
+        description: "The complete version tag (with prefix)"
+        value: ${{ jobs.determine-version.outputs.version_tag }}
+      release_created:
+        description: "Whether a new release was created"
+        value: ${{ jobs.create-release.outputs.release_created }}
+      release_url:
+        description: "URL of the created GitHub release"
+        value: ${{ jobs.create-release.outputs.release_url }}
+
+jobs:
+  determine-version:
+    runs-on:
+      group: ${{ inputs.runner_group }}
+    outputs:
+      version: ${{ steps.set-version.outputs.version }}
+      version_tag: ${{ steps.set-version.outputs.version_tag }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Need full history for version determination
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+
+      - name: Install semantic-release related packages
+        run: |
+          npm install -g semantic-release @semantic-release/git @semantic-release/github conventional-changelog-conventionalcommits
+
+      - name: Determine next version
+        id: set-version
+        run: |
+          CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
+          CURRENT_VERSION=${CURRENT_VERSION#${{ inputs.tag_prefix }}}
+
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+
+          if [[ "${{ inputs.release_type }}" == "auto" ]]; then
+            # Use conventional commits to determine release type
+            COMMIT_TYPES=$(git log --format=%s $(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD | grep -E '^(feat|fix|breaking|perf|refactor)')
+            
+            if echo "$COMMIT_TYPES" | grep -q "^breaking"; then
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+            elif echo "$COMMIT_TYPES" | grep -q "^feat"; then
+              MINOR=$((MINOR + 1))
+              PATCH=0
+            else
+              PATCH=$((PATCH + 1))
+            fi
+          elif [[ "${{ inputs.release_type }}" == "major" ]]; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif [[ "${{ inputs.release_type }}" == "minor" ]]; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          elif [[ "${{ inputs.release_type }}" == "patch" ]]; then
+            PATCH=$((PATCH + 1))
+          fi
+
+          # Create a clean version without pre-release suffix
+          # We'll use the same version number for all environments
+          NEXT_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+
+          echo "version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "version_tag=${{ inputs.tag_prefix }}${NEXT_VERSION}" >> $GITHUB_OUTPUT
+
+          echo "Current version: $CURRENT_VERSION"
+          echo "Next version: $NEXT_VERSION"
+          echo "Version tag: ${{ inputs.tag_prefix }}${NEXT_VERSION}"
+
+  create-release:
+    needs: determine-version
+    runs-on:
+      group: ${{ inputs.runner_group }}
+    outputs:
+      release_created: ${{ steps.create-or-update-release.outputs.release_created }}
+      release_url: ${{ steps.create-or-update-release.outputs.html_url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_branch }}
+
+      - name: Generate Release Notes
+        id: generate-notes
+        run: |
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$PREVIOUS_TAG" ]; then
+            # This is the first release, include all commits
+            git log --pretty=format:"* %s (%h)" > RELEASE_NOTES.md
+          else
+            # Generate notes since the last tag
+            echo "## Changes since $PREVIOUS_TAG" > RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            
+            # Group commits by type
+            echo "### Features" >> RELEASE_NOTES.md
+            git log $PREVIOUS_TAG..HEAD --pretty=format:"* %s (%h)" --grep="^feat" >> RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            
+            echo "### Bug Fixes" >> RELEASE_NOTES.md
+            git log $PREVIOUS_TAG..HEAD --pretty=format:"* %s (%h)" --grep="^fix" >> RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            
+            echo "### Other Changes" >> RELEASE_NOTES.md
+            git log $PREVIOUS_TAG..HEAD --pretty=format:"* %s (%h)" --grep -v "^feat\|^fix" >> RELEASE_NOTES.md
+          fi
+
+          cat RELEASE_NOTES.md
+
+      - name: Check for existing release
+        id: check-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.determine-version.outputs.version_tag }}
+        run: |
+          # Check if the tag exists already
+          EXISTING_RELEASE=$(curl -s -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG_NAME" || echo "")
+
+          if [[ $EXISTING_RELEASE == *"id"* ]]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "id=$(echo $EXISTING_RELEASE | jq -r .id)" >> $GITHUB_OUTPUT
+            echo "Found existing release with tag $TAG_NAME"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "No existing release found with tag $TAG_NAME"
+          fi
+
+      - name: Update existing release
+        id: update-release
+        if: steps.check-release.outputs.exists == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ steps.check-release.outputs.id }}
+        run: |
+          RELEASE_NOTES=$(cat RELEASE_NOTES.md)
+          RELEASE_NOTES="${RELEASE_NOTES//'%'/'%25'}"
+          RELEASE_NOTES="${RELEASE_NOTES//$'\n'/'%0A'}"
+          RELEASE_NOTES="${RELEASE_NOTES//$'\r'/'%0D'}"
+
+          # Update the existing release with new prerelease status
+          curl -X PATCH \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID" \
+            -d "{\"prerelease\":${{ inputs.prerelease }}, \"body\":\"$RELEASE_NOTES\"}"
+
+          echo "release_created=false" >> $GITHUB_OUTPUT
+          echo "Updated existing release with tag ${{ needs.determine-version.outputs.version_tag }}"
+
+      - name: Create new GitHub Release
+        id: create-release
+        if: steps.check-release.outputs.exists == 'false'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.determine-version.outputs.version_tag }}
+          release_name: Release ${{ needs.determine-version.outputs.version_tag }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ inputs.prerelease }}
+
+      - name: Set release output
+        id: create-or-update-release
+        run: |
+          if [ "${{ steps.check-release.outputs.exists }}" == "true" ]; then
+            echo "release_created=false" >> $GITHUB_OUTPUT
+            echo "html_url=https://github.com/${{ github.repository }}/releases/tag/${{ needs.determine-version.outputs.version_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "release_created=true" >> $GITHUB_OUTPUT
+            echo "html_url=${{ steps.create-release.outputs.html_url }}" >> $GITHUB_OUTPUT
+          fi
