@@ -1,0 +1,7 @@
+{
+  "name": "CI/CD Pipeline (Reference Central Workflows)",
+  "description": "Workflow that references reusable workflows from the central GitHub repository",
+  "iconName": "rocket",
+  "categories": ["Deployment", "Kubernetes", "Docker"],
+  "filePatterns": ["Dockerfile", "helm/**"]
+} 

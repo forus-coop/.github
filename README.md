@@ -2,20 +2,50 @@
 
 This repository contains reusable GitHub Actions workflow templates for CI/CD pipelines in our organization.
 
+## Centralized Workflow Approach
+
+We use a centralized workflow approach where all repositories in the organization reference the workflows defined in this `.github` repository. This provides:
+
+- A single source of truth for all CI/CD workflows
+- Consistent deployment processes across all repositories
+- Simplified maintenance and updates
+
 ## Available Workflows
 
 ### CI/CD Pipeline
 
 A complete CI/CD pipeline that builds Docker images, pushes them to AWS ECR, and deploys to Kubernetes using Helm.
 
-#### How to Use in Your Repository
+#### How to Reference in Your Repository
+
+In your repository's workflow file:
+
+```yaml
+jobs:
+  build:
+    uses: forus-coop/.github/.github/workflows/docker-build-push.yml@main
+    with:
+      image_tag: ${{ github.sha }}
+    secrets: inherit
+
+  deploy:
+    uses: forus-coop/.github/.github/workflows/helm-deploy.yml@main
+    with:
+      environment: production
+      app_name: my-app
+      image_tag: ${{ github.sha }}
+    secrets: inherit
+```
+
+#### How to Set Up in a New Repository
 
 1. Navigate to your repository
-2. Click on "Actions" tab
-3. Under "Workflows created by your organization", select "CI/CD Pipeline"
-4. Click "Set up this workflow"
-5. Make any necessary customizations to the workflow file
-6. Commit the changes to your repository
+2. Create a `.github/workflows/ci-cd.yml` file
+3. Use the template from `workflow-templates/example-usage.yml`
+4. Customize as needed for your application
+5. Commit the changes to your repository
+
+For detailed setup instructions, see [SETUP.md](workflow-templates/SETUP.md).
 
 ## Requirements for Your Repository
 
@@ -33,11 +63,12 @@ The CI/CD pipeline expects the following directory structure:
 
 ### Helm Values Files
 
-Example Helm values files are provided in the `workflow-templates/helm-values-examples/` directory. Copy these files to your repository as a starting point:
+Example Helm values files are provided in the `workflow-templates/helm-values-examples/` directory. You can fetch these files using:
 
-```
-mkdir -p helm
-cp /path/to/workflow-templates/helm-values-examples/*.yaml helm/
+```bash
+curl -o helm/sandbox.yaml https://raw.githubusercontent.com/forus-coop/.github/main/workflow-templates/helm-values-examples/sandbox.yaml
+curl -o helm/staging.yaml https://raw.githubusercontent.com/forus-coop/.github/main/workflow-templates/helm-values-examples/staging.yaml
+curl -o helm/production.yaml https://raw.githubusercontent.com/forus-coop/.github/main/workflow-templates/helm-values-examples/production.yaml
 ```
 
 The Helm values files include:
@@ -57,6 +88,8 @@ The workflows require the following secrets to be set at the organization or rep
   - ORG_KUBECTL_CONFIG_BASE64_STAGING
   - ORG_KUBECTL_CONFIG_BASE64_PRODUCTION
 
+> **Important**: GitHub Actions doesn't support dynamic secret names with string concatenation. The workflow uses conditional steps to access the appropriate secret for each environment.
+
 ### GitHub Environments
 
 Set up the following environments in your repository settings:
@@ -64,14 +97,36 @@ Set up the following environments in your repository settings:
 - staging
 - production
 
-## Customizing the Workflows
+## Workflow Permission Requirements
 
-The workflows are designed to be used as-is, but can be customized as needed. The main `ci-cd-pipeline.yml` workflow calls two other workflows:
+For repositories to use these centralized workflows:
 
-1. `docker-build-push.yml` - Builds and pushes Docker images to ECR
-2. `helm-deploy.yml` - Deploys applications to Kubernetes using Helm
+1. The `.github` repository must be public, OR
+2. Workflow permissions must be properly configured in your organization settings:
+   - Go to your organization settings > Actions > General
+   - Under "Workflow permissions", select "Allow enterprise, organization, and repository workflows"
 
-An example file demonstrating customization options is provided in `workflow-templates/example-usage.yml`.
+## Customizing Workflow Usage
+
+The workflows are designed to be used with minimal configuration, but can be customized with various input parameters.
+
+Examples of customization:
+
+```yaml
+# Custom Docker build configuration
+uses: forus-coop/.github/.github/workflows/docker-build-push.yml@main
+with:
+  docker_build_dir: './app'
+  dockerfile_path: 'Dockerfile.prod'
+  image_tag: ${{ github.sha }}
+
+# Custom Helm deployment
+uses: forus-coop/.github/.github/workflows/helm-deploy.yml@main
+with:
+  environment: production
+  helm_chart: 'oci://ghcr.io/forus-coop/custom-chart'
+  helm_values_file: './helm/custom/production.yaml'
+```
 
 ## Workflow Behavior
 

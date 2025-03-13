@@ -72,7 +72,7 @@ jobs:
   build:
     needs: determine-environment
     if: needs.determine-environment.outputs.environment != 'skip'
-    uses: ./.github/workflows/docker-build-push.yml
+    uses: forus-coop/.github/.github/workflows/docker-build-push.yml@main
     with:
       image_tag: ${{ needs.determine-environment.outputs.ref }}
     secrets: inherit
@@ -80,7 +80,7 @@ jobs:
   deploy:
     needs: [determine-environment, build]
     if: needs.determine-environment.outputs.environment != 'skip'
-    uses: ./.github/workflows/helm-deploy.yml
+    uses: forus-coop/.github/.github/workflows/helm-deploy.yml@main
     with:
       environment: ${{ needs.determine-environment.outputs.environment }}
       app_name: ${{ github.event.inputs.app_name || github.event.repository.name }}
@@ -91,13 +91,13 @@ jobs:
 # Custom configuration options:
 # 
 # To use a custom Dockerfile path:
-# uses: ./.github/workflows/docker-build-push.yml
+# uses: forus-coop/.github/.github/workflows/docker-build-push.yml@main
 # with:
 #   docker_build_dir: './app'
 #   dockerfile_path: 'Dockerfile.prod'
 #
 # To use a custom Helm chart:
-# uses: ./.github/workflows/helm-deploy.yml
+# uses: forus-coop/.github/.github/workflows/helm-deploy.yml@main
 # with:
 #   helm_chart: 'oci://ghcr.io/myorg/mychart'
 #   helm_values_file: './helm/custom/${{ needs.determine-environment.outputs.environment }}.yaml' 

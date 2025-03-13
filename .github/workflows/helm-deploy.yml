@@ -4,49 +4,49 @@ on:
   workflow_call:
     inputs:
       environment:
-        description: 'Environment to deploy to (sandbox, staging, production)'
+        description: "Environment to deploy to (sandbox, staging, production)"
         required: true
         type: string
       app_name:
-        description: 'Name of the app to deploy'
+        description: "Name of the app to deploy"
         required: false
         type: string
         default: ${{ github.event.repository.name }}
       namespace:
-        description: 'Kubernetes namespace to deploy to'
+        description: "Kubernetes namespace to deploy to"
         required: false
         type: string
         default: ${{ inputs.environment }}
       helm_chart:
-        description: 'Helm chart to use'
+        description: "Helm chart to use"
         required: false
         type: string
-        default: 'oci://ghcr.io/forus-coop/forus-app'
+        default: "oci://ghcr.io/forus-coop/forus-app"
       helm_values_file:
-        description: 'Path to the Helm values file'
+        description: "Path to the Helm values file"
         required: false
         type: string
-        default: './helm/${{ inputs.environment }}.yaml'
+        default: "./helm/${{ inputs.environment }}.yaml"
       image_tag:
-        description: 'Tag of the Docker image to deploy'
+        description: "Tag of the Docker image to deploy"
         required: true
         type: string
       image_repository:
-        description: 'Repository of the Docker image to deploy'
+        description: "Repository of the Docker image to deploy"
         required: false
         type: string
         default: ${{ github.event.repository.name }}
       aws_region:
-        description: 'AWS region'
+        description: "AWS region"
         required: false
         type: string
-        default: 'us-west-2'
+        default: "us-west-2"
 
 jobs:
   deploy:
     runs-on: ${{ inputs.environment == 'production' && 'prod-runner' || inputs.environment }}
     environment: ${{ inputs.environment }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -61,9 +61,28 @@ jobs:
           # Or use role-to-assume with OIDC
           # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
 
-      - name: Retrieve Kubeconfig
+      - name: Retrieve Kubeconfig for Sandbox
+        if: inputs.environment == 'sandbox'
         env:
-          KUBECONFIG_SECRET: ${{ secrets['ORG_KUBECTL_CONFIG_BASE64_' + inputs.environment | upper] }}
+          KUBECONFIG_SECRET: ${{ secrets.ORG_KUBECTL_CONFIG_BASE64_SANDBOX }}
+        run: |
+          mkdir -p ~/.kube
+          echo "$KUBECONFIG_SECRET" | base64 --decode > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Retrieve Kubeconfig for Staging
+        if: inputs.environment == 'staging'
+        env:
+          KUBECONFIG_SECRET: ${{ secrets.ORG_KUBECTL_CONFIG_BASE64_STAGING }}
+        run: |
+          mkdir -p ~/.kube
+          echo "$KUBECONFIG_SECRET" | base64 --decode > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Retrieve Kubeconfig for Production
+        if: inputs.environment == 'production'
+        env:
+          KUBECONFIG_SECRET: ${{ secrets.ORG_KUBECTL_CONFIG_BASE64_PRODUCTION }}
         run: |
           mkdir -p ~/.kube
           echo "$KUBECONFIG_SECRET" | base64 --decode > ~/.kube/config
@@ -72,7 +91,7 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v3
         with:
-          version: 'latest'
+          version: "latest"
 
       - name: Login to Helm registry
         run: |
@@ -86,4 +105,4 @@ jobs:
             --atomic \
             --namespace=${{ inputs.namespace }} \
             --set tag=${{ inputs.image_tag }} \
-            --values=${{ inputs.helm_values_file }} 
+            --values=${{ inputs.helm_values_file }}
