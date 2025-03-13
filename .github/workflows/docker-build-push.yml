@@ -84,8 +84,8 @@ jobs:
 
           # Build and push using buildx with secrets
           docker buildx build \
-            --secret id=BUNDLE_RUBYGEMS__PKG__GITHUB__COM,src=/tmp/github_token \
-            --secret id=SECRET_KEY_BASE,src=/tmp/secret_key_base \
+            --secret id=GITHUB_TOKEN \
+            --secret id=SECRET_KEY_BASE \
             --push \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
             ${{ inputs.docker_build_dir }} \
