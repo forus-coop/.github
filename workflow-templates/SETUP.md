@@ -12,11 +12,15 @@ mkdir -p helm
 
 ## Step 2: Copy the Workflow Files
 
-Copy the main workflow file to your repository:
+Copy all the required workflow files to your repository:
 
 ```bash
 # Create the main workflow file
 cp /path/to/workflow-templates/example-usage.yml .github/workflows/ci-cd.yml
+
+# Copy the reusable workflow files (necessary for this workflow to function)
+cp /path/to/workflow-templates/docker-build-push.yml .github/workflows/
+cp /path/to/workflow-templates/helm-deploy.yml .github/workflows/
 ```
 
 ## Step 3: Copy the Helm Values Files
@@ -82,7 +86,7 @@ Common customizations include:
 Commit and push all these files to your repository:
 
 ```bash
-git add .github/workflows/ci-cd.yml helm/ Dockerfile
+git add .github/workflows/ helm/ Dockerfile
 git commit -m "Add CI/CD pipeline"
 git push
 ```
