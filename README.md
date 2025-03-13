@@ -37,6 +37,44 @@ jobs:
     secrets: inherit
 ```
 
+### RSpec Testing
+
+A workflow for running RSpec tests with configurable options for Ruby applications. This workflow supports:
+
+- Customizing Ruby version
+- Excluding specific files or patterns
+- Running tests with specific tags
+- Running tests on specific paths or files
+- PostgreSQL database integration
+- Redis integration
+
+#### How to Reference in Your Repository
+
+```yaml
+jobs:
+  test:
+    uses: forus-coop/.github/.github/workflows/rspec-test.yml@main
+    with:
+      # Optional: Specify Ruby version
+      ruby_version: "3.2.2"
+      # Optional: Skip specific test files
+      exclude_files: "spec/features/**/*,spec/slow/**/*"
+      # Optional: Only run specific tagged tests
+      rspec_tags: "~slow,~js"
+      # Optional: Only run tests in specific directories
+      rspec_paths: "spec/models,spec/controllers"
+      # Optional: Enable PostgreSQL for tests
+      postgres_enabled: true
+      # Optional: Enable Redis for tests
+      redis_enabled: true
+    secrets:
+      # Optional: Custom database URL
+      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+      # Optional: Custom Redis URL
+      REDIS_URL: ${{ secrets.TEST_REDIS_URL }}
+      inherit: true
+```
+
 #### How to Set Up in a New Repository
 
 1. Navigate to your repository

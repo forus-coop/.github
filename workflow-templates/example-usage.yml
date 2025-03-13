@@ -67,8 +67,34 @@ jobs:
             echo "ref=${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
 
-  build:
+  test:
     needs: determine-environment
+    if: needs.determine-environment.outputs.environment != 'skip'
+    uses: forus-coop/.github/.github/workflows/rspec-test.yml@main
+    with:
+      # Specify Ruby version if needed
+      ruby_version: "3.2.2"
+      # Optional: Exclude slower or problematic tests
+      exclude_files: "spec/features/**/*,spec/slow/**/*"
+      # Optional: Only run specific tags
+      rspec_tags: "~slow,~js"
+      # Optional: Run tests on specific paths
+      rspec_paths: "spec/models,spec/controllers"
+      # Enable database if needed
+      postgres_enabled: true
+      # Enable Redis if needed
+      redis_enabled: true
+      # Use the same runner group as other jobs
+      runner_group: ${{ needs.determine-environment.outputs.environment }}
+    secrets:
+      # Optional: Custom database URL
+      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+      # Optional: Custom Redis URL
+      REDIS_URL: ${{ secrets.TEST_REDIS_URL }}
+      inherit: true
+
+  build:
+    needs: [determine-environment, test]
     if: needs.determine-environment.outputs.environment != 'skip'
     uses: forus-coop/.github/.github/workflows/docker-build-push.yml@main
     with:
@@ -108,3 +134,15 @@ jobs:
 #   environment: production
 #   helm_chart: 'oci://ghcr.io/myorg/mychart'
 #   helm_values_file: './helm/custom/${{ needs.determine-environment.outputs.environment }}.yaml' 
+#
+# To customize RSpec tests:
+# uses: forus-coop/.github/.github/workflows/rspec-test.yml@main
+# with:
+#   # Run only specific tests
+#   rspec_paths: "spec/models/user_spec.rb,spec/controllers/users_controller_spec.rb"
+#   # Exclude system tests
+#   exclude_files: "spec/system/**/*"
+#   # Run only tests with specific tags
+#   rspec_tags: "api,~slow"
+#   # Enable PostgreSQL for tests
+#   postgres_enabled: true 

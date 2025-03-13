@@ -1,0 +1,146 @@
+name: RSpec Tests
+
+on:
+  workflow_call:
+    inputs:
+      ruby_version:
+        description: "Ruby version to use"
+        required: false
+        type: string
+        default: "3.2.2"
+      exclude_files:
+        description: "Comma-separated list of files to exclude from testing"
+        required: false
+        type: string
+        default: ""
+      rspec_tags:
+        description: "Tags to filter RSpec tests (e.g., '~slow' to exclude slow tests)"
+        required: false
+        type: string
+        default: ""
+      rspec_paths:
+        description: "Specific paths or files to run RSpec on (comma-separated)"
+        required: false
+        type: string
+        default: "spec"
+      bundler_jobs:
+        description: "Number of parallel jobs to use for bundler"
+        required: false
+        type: string
+        default: "4"
+      redis_enabled:
+        description: "Whether to start Redis for the tests"
+        required: false
+        type: boolean
+        default: false
+      postgres_enabled:
+        description: "Whether to start PostgreSQL for the tests"
+        required: false
+        type: boolean
+        default: false
+      runner_group:
+        description: "Runner group to use for tests"
+        required: false
+        type: string
+        default: "sandbox"
+    secrets:
+      DATABASE_URL:
+        required: false
+      REDIS_URL:
+        required: false
+
+jobs:
+  rspec:
+    runs-on:
+      group: ${{ inputs.runner_group }}
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:6
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ inputs.ruby_version }}
+          bundler-cache: true
+
+      - name: Install dependencies
+        run: |
+          gem install bundler
+          bundle config set --local jobs ${{ inputs.bundler_jobs }}
+          bundle install
+
+      - name: Prepare test files exclusion list
+        id: prepare-exclusion
+        if: inputs.exclude_files != ''
+        run: |
+          EXCLUDE_PATTERN=""
+          IFS=',' read -ra EXCLUDE_FILES <<< "${{ inputs.exclude_files }}"
+          for file in "${EXCLUDE_FILES[@]}"; do
+            if [ -n "$EXCLUDE_PATTERN" ]; then
+              EXCLUDE_PATTERN="$EXCLUDE_PATTERN|$file"
+            else
+              EXCLUDE_PATTERN="$file"
+            fi
+          done
+          echo "exclude_pattern=$EXCLUDE_PATTERN" >> $GITHUB_OUTPUT
+
+      - name: Prepare RSpec paths
+        id: prepare-paths
+        run: |
+          RSPEC_PATHS=""
+          IFS=',' read -ra PATHS <<< "${{ inputs.rspec_paths }}"
+          for path in "${PATHS[@]}"; do
+            RSPEC_PATHS="$RSPEC_PATHS $path"
+          done
+          echo "paths=$RSPEC_PATHS" >> $GITHUB_OUTPUT
+
+      - name: Run RSpec tests
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/test' }}
+          REDIS_URL: ${{ secrets.REDIS_URL || 'redis://localhost:6379/1' }}
+          RAILS_ENV: test
+          POSTGRES_ENABLED: ${{ inputs.postgres_enabled }}
+          REDIS_ENABLED: ${{ inputs.redis_enabled }}
+        run: |
+          # Build RSpec command with options
+          RSPEC_CMD="bundle exec rspec ${{ steps.prepare-paths.outputs.paths }}"
+
+          # Add tags if specified
+          if [ -n "${{ inputs.rspec_tags }}" ]; then
+            RSPEC_CMD="$RSPEC_CMD --tag ${{ inputs.rspec_tags }}"
+          fi
+
+          # Add exclude pattern if specified
+          if [ -n "${{ steps.prepare-exclusion.outputs.exclude_pattern }}" ]; then
+            RSPEC_CMD="$RSPEC_CMD --exclude-pattern '${{ steps.prepare-exclusion.outputs.exclude_pattern }}'"
+          fi
+
+          # Run RSpec with configured options
+          echo "Running: $RSPEC_CMD"
+          eval $RSPEC_CMD
