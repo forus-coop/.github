@@ -136,8 +136,6 @@ jobs:
           # Run with explicit path to kubeconfig
           helm upgrade ${{ steps.format-app-name.outputs.formatted_app }} ${{ inputs.helm_chart }} \
             --install \
-            --wait \
-            --atomic \
             --namespace=${{ inputs.namespace }} \
             --set image.tag=${{ inputs.image_tag }} \
             --values=${{ inputs.helm_values_file }} \
