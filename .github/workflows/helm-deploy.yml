@@ -111,8 +111,28 @@ jobs:
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io/forus-coop --username ${{ github.repository_owner }} --password-stdin
 
+      - name: Debug kubeconfig
+        run: |
+          # Check if kubeconfig exists and is readable
+          ls -la ~/.kube/
+          echo "Checking if config file exists:"
+          test -f ~/.kube/config && echo "~/.kube/config exists" || echo "~/.kube/config does not exist"
+          echo "Absolute path of kubeconfig:"
+          realpath ~/.kube/config
+          echo "Current working directory:"
+          pwd
+          # Print the KUBECONFIG environment variable
+          echo "KUBECONFIG env var: $KUBECONFIG"
+          # Export the KUBECONFIG variable explicitly
+          export KUBECONFIG=~/.kube/config
+          echo "Set KUBECONFIG to: $KUBECONFIG"
+
       - name: Deploy with Helm
         run: |
+          # Explicitly set KUBECONFIG environment variable
+          export KUBECONFIG=~/.kube/config
+
+          # Run with explicit path to kubeconfig
           helm upgrade ${{ steps.format-app-name.outputs.formatted_app }} ${{ inputs.helm_chart }} \
             --install \
             --wait \
@@ -120,4 +140,4 @@ jobs:
             --namespace=${{ inputs.namespace }} \
             --set image.tag=${{ inputs.image_tag }} \
             --values=${{ inputs.helm_values_file }} \
-            --kubeconfig=~/.kube/config
+            --kubeconfig=$(realpath ~/.kube/config)
