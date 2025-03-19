@@ -15,6 +15,11 @@ on:
         required: false
         type: string
         description: "Repository name for secrets path (defaults to github.event.repository.name)"
+      aws_region:
+        description: "AWS region"
+        required: false
+        type: string
+        default: "us-west-2"
 
 jobs:
   run-migrations:
@@ -24,7 +29,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ inputs.aws_region }}
 
       - name: Login to Amazon ECR
         id: login-ecr
