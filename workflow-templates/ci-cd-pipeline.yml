@@ -32,7 +32,7 @@ on:
 jobs:
   determine-environment:
     runs-on:
-      group: sandbox
+      group: ${{ inputs.environment }}
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
       ref: ${{ steps.set-ref.outputs.ref }}
@@ -72,8 +72,18 @@ jobs:
       runner_group: ${{ needs.determine-environment.outputs.environment }}
     secrets: inherit
 
-  deploy:
+  run-migrations:
     needs: [determine-environment, build]
+    if: needs.determine-environment.outputs.environment != 'skip'
+    uses: forus-coop/.github/.github/workflows/run-migrations.yml@main
+    with:
+      environment: ${{ needs.determine-environment.outputs.environment }}
+      image_name: "${{ github.event.inputs.app_name || github.event.repository.name }}:${{ needs.determine-environment.outputs.ref }}"
+      repository_name: "${{ github.event.inputs.repository_name || github.event.inputs.app_name || github.event.repository.name }}"
+    secrets: inherit
+
+  deploy:
+    needs: [determine-environment, build, run-migrations]
     if: needs.determine-environment.outputs.environment != 'skip'
     uses: forus-coop/.github/.github/workflows/helm-deploy.yml@main
     with:
