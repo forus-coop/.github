@@ -119,6 +119,7 @@ jobs:
           test -f ~/.kube/config && echo "~/.kube/config exists" || echo "~/.kube/config does not exist"
           echo "Absolute path of kubeconfig:"
           realpath ~/.kube/config
+          test -f /home/ec2-user/.kube/config && echo "/home/ec2-user/.kube/config exists" || echo "/home/ec2-user/.kube/config does not exist"
           echo "Current working directory:"
           pwd
           # Print the KUBECONFIG environment variable
