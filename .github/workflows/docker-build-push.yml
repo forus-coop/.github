@@ -71,7 +71,7 @@ jobs:
         run: |
           # Replace underscores and other non-hyphen characters with hyphens
           ORIGINAL_REPO="${{ inputs.ecr_repository }}"
-          FORMATTED_REPO=$(echo "$ORIGINAL_REPO" | tr '_' '-' | tr '[:upper:]' '[:lower:]')
+          FORMATTED_REPO=$(echo "$ORIGINAL_REPO" | tr '_.' '-' | tr '[:upper:]' '[:lower:]')
           echo "formatted_repo=$FORMATTED_REPO" >> $GITHUB_OUTPUT
           echo "Original repository name: $ORIGINAL_REPO, Formatted: $FORMATTED_REPO"
 
