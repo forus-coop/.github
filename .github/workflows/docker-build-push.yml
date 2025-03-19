@@ -86,6 +86,7 @@ jobs:
           IMAGE_TAG: ${{ inputs.image_tag }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE || 'dummy-key-for-build' }}
+          APP_REVISION: ${{ inputs.image_tag }}
         run: |
           # Create secrets files
           echo "$GITHUB_TOKEN" > /tmp/github_token

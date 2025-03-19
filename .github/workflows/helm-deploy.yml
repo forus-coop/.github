@@ -71,29 +71,18 @@ jobs:
           # Or use role-to-assume with OIDC
           # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
 
-      - name: Retrieve Kubeconfig for Sandbox
-        if: inputs.environment == 'sandbox'
+      - name: Retrieve Kubeconfig
         env:
-          KUBECONFIG_SECRET: ${{ secrets.ORG_KUBECTL_CONFIG_BASE64_SANDBOX }}
+          KUBECONFIG_SECRET:
+            ${{ inputs.environment == 'sandbox' && secrets.ORG_KUBECTL_CONFIG_BASE64_SANDBOX ||
+            inputs.environment == 'staging' && secrets.ORG_KUBECTL_CONFIG_BASE64_STAGING ||
+            inputs.environment == 'production' && secrets.ORG_KUBECTL_CONFIG_BASE64_PRODUCTION }}
         run: |
-          mkdir -p ~/.kube
-          echo "$KUBECONFIG_SECRET" | base64 --decode > ~/.kube/config
-          chmod 600 ~/.kube/config
+          if [ -z "$KUBECONFIG_SECRET" ]; then
+            echo "Error: No kubeconfig found for environment: ${{ inputs.environment }}"
+            exit 1
+          fi
 
-      - name: Retrieve Kubeconfig for Staging
-        if: inputs.environment == 'staging'
-        env:
-          KUBECONFIG_SECRET: ${{ secrets.ORG_KUBECTL_CONFIG_BASE64_STAGING }}
-        run: |
-          mkdir -p ~/.kube
-          echo "$KUBECONFIG_SECRET" | base64 --decode > ~/.kube/config
-          chmod 600 ~/.kube/config
-
-      - name: Retrieve Kubeconfig for Production
-        if: inputs.environment == 'production'
-        env:
-          KUBECONFIG_SECRET: ${{ secrets.ORG_KUBECTL_CONFIG_BASE64_PRODUCTION }}
-        run: |
           mkdir -p ~/.kube
           echo "$KUBECONFIG_SECRET" | base64 --decode > ~/.kube/config
           chmod 600 ~/.kube/config
