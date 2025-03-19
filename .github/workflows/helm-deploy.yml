@@ -71,32 +71,46 @@ jobs:
           # Or use role-to-assume with OIDC
           # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
 
-      - name: Retrieve Kubeconfig for Sandbox
-        if: inputs.environment == 'sandbox'
-        env:
-          KUBECONFIG_SECRET: ${{ secrets.ORG_KUBECTL_CONFIG_BASE64_SANDBOX }}
+      - name: Set Kubeconfig for environment
         run: |
           mkdir -p ~/.kube
-          echo "$KUBECONFIG_SECRET" | base64 --decode > ~/.kube/config
-          chmod 600 ~/.kube/config
 
-      - name: Retrieve Kubeconfig for Staging
-        if: inputs.environment == 'staging'
-        env:
-          KUBECONFIG_SECRET: ${{ secrets.ORG_KUBECTL_CONFIG_BASE64_STAGING }}
-        run: |
-          mkdir -p ~/.kube
-          echo "$KUBECONFIG_SECRET" | base64 --decode > ~/.kube/config
-          chmod 600 ~/.kube/config
+          if [[ "${{ inputs.environment }}" == "sandbox" ]]; then
+            if [[ -z "${{ secrets.ORG_KUBECTL_CONFIG_BASE64_SANDBOX }}" ]]; then
+              echo "Error: No kubeconfig found for sandbox environment"
+              exit 1
+            fi
+            echo "${{ secrets.ORG_KUBECTL_CONFIG_BASE64_SANDBOX }}" | base64 --decode > ~/.kube/config
+          elif [[ "${{ inputs.environment }}" == "staging" ]]; then
+            if [[ -z "${{ secrets.ORG_KUBECTL_CONFIG_BASE64_STAGING }}" ]]; then
+              echo "Error: No kubeconfig found for staging environment"
+              exit 1
+            fi
+            echo "${{ secrets.ORG_KUBECTL_CONFIG_BASE64_STAGING }}" | base64 --decode > ~/.kube/config
+          elif [[ "${{ inputs.environment }}" == "production" ]]; then
+            if [[ -z "${{ secrets.ORG_KUBECTL_CONFIG_BASE64_PRODUCTION }}" ]]; then
+              echo "Error: No kubeconfig found for production environment"
+              exit 1
+            fi
+            echo "${{ secrets.ORG_KUBECTL_CONFIG_BASE64_PRODUCTION }}" | base64 --decode > ~/.kube/config
+          else
+            echo "Error: Unknown environment: ${{ inputs.environment }}"
+            exit 1
+          fi
 
-      - name: Retrieve Kubeconfig for Production
-        if: inputs.environment == 'production'
-        env:
-          KUBECONFIG_SECRET: ${{ secrets.ORG_KUBECTL_CONFIG_BASE64_PRODUCTION }}
-        run: |
-          mkdir -p ~/.kube
-          echo "$KUBECONFIG_SECRET" | base64 --decode > ~/.kube/config
           chmod 600 ~/.kube/config
+          echo "Kubeconfig has been set up for ${{ inputs.environment }} environment"
+
+      - name: Debug Kubernetes connection
+        run: |
+          # Check if kubectl is installed
+          kubectl version --client
+
+          # Check if we can connect to the cluster
+          kubectl cluster-info
+
+          # Check available namespaces
+          kubectl get namespaces
 
       - name: Install Helm
         uses: azure/setup-helm@v3
@@ -116,4 +130,5 @@ jobs:
             --atomic \
             --namespace=${{ inputs.namespace }} \
             --set image.tag=${{ inputs.image_tag }} \
-            --values=${{ inputs.helm_values_file }}
+            --values=${{ inputs.helm_values_file }} \
+            --kubeconfig=~/.kube/config
