@@ -101,17 +101,6 @@ jobs:
           chmod 600 ~/.kube/config
           echo "Kubeconfig has been set up for ${{ inputs.environment }} environment"
 
-      - name: Debug Kubernetes connection
-        run: |
-          # Check if kubectl is installed
-          kubectl version --client
-
-          # Check if we can connect to the cluster
-          kubectl cluster-info
-
-          # Check available namespaces
-          kubectl get namespaces
-
       - name: Install Helm
         uses: azure/setup-helm@v3
         with:
