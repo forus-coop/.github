@@ -93,7 +93,7 @@ jobs:
           echo "$SECRET_KEY_BASE" > /tmp/secret_key_base
 
           # Build and push using buildx with secrets
-          docker buildx debug build \
+          docker buildx build \
             --platform linux/amd64 \
             --secret id=GITHUB_TOKEN \
             --secret id=SECRET_KEY_BASE \
