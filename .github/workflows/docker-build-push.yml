@@ -94,6 +94,7 @@ jobs:
 
           # Build and push using buildx with secrets
           docker buildx build \
+            --platform linux/amd64 \
             --secret id=GITHUB_TOKEN \
             --secret id=SECRET_KEY_BASE \
             --push \
