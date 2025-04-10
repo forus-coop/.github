@@ -1,0 +1,142 @@
+name: Flux Deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "Environment to deploy to (sandbox, staging, production)"
+        required: true
+        type: string
+      app_name:
+        description: "Name of the app to deploy"
+        required: false
+        type: string
+        default: ${{ github.event.repository.name }}
+      namespace:
+        description: "Kubernetes namespace to deploy to"
+        required: false
+        type: string
+        default: ${{ inputs.environment }}
+      image_tag:
+        description: "Tag of the Docker image to deploy"
+        required: true
+        type: string
+      image_repository:
+        description: "Repository of the Docker image to deploy"
+        required: false
+        type: string
+        default: ${{ github.event.repository.name }}
+      aws_region:
+        description: "AWS region"
+        required: false
+        type: string
+        default: "us-west-2"
+
+jobs:
+  deploy:
+    runs-on:
+      group: ${{ inputs.environment }}
+    environment: ${{ inputs.environment }}
+
+    steps:
+      # - name: Checkout code
+      #   uses: actions/checkout@v4
+
+      - name: Format app name (repository name)
+        id: format-app-name
+        run: |
+          # Replace underscores and other non-hyphen characters with hyphens
+          ORIGINAL_REPO="${{ github.event.repository.name }}"
+          FORMATTED_APP=$(echo "$ORIGINAL_REPO" | tr '_' '-' | tr '[:upper:]' '[:lower:]')
+          echo "formatted_app=$FORMATTED_APP" >> $GITHUB_OUTPUT
+          echo "Original repository name: $ORIGINAL_REPO, Formatted app name: $FORMATTED_APP"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ inputs.aws_region }}
+          # Note: You'll need to set these as secrets or use OIDC
+          # aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          # aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # Or use role-to-assume with OIDC
+          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+
+      - name: Set Kubeconfig for environment
+        run: |
+          mkdir -p ~/.kube
+
+          if [[ "${{ inputs.environment }}" == "sandbox" ]]; then
+            if [[ -z "${{ secrets.ORG_KUBECTL_CONFIG_BASE64_SANDBOX }}" ]]; then
+              echo "Error: No kubeconfig found for sandbox environment"
+              exit 1
+            fi
+            echo "${{ secrets.ORG_KUBECTL_CONFIG_BASE64_SANDBOX }}" | base64 --decode > ~/.kube/config
+          elif [[ "${{ inputs.environment }}" == "staging" ]]; then
+            if [[ -z "${{ secrets.ORG_KUBECTL_CONFIG_BASE64_STAGING }}" ]]; then
+              echo "Error: No kubeconfig found for staging environment"
+              exit 1
+            fi
+            echo "${{ secrets.ORG_KUBECTL_CONFIG_BASE64_STAGING }}" | base64 --decode > ~/.kube/config
+          elif [[ "${{ inputs.environment }}" == "production" ]]; then
+            if [[ -z "${{ secrets.ORG_KUBECTL_CONFIG_BASE64_PRODUCTION }}" ]]; then
+              echo "Error: No kubeconfig found for production environment"
+              exit 1
+            fi
+            echo "${{ secrets.ORG_KUBECTL_CONFIG_BASE64_PRODUCTION }}" | base64 --decode > ~/.kube/config
+          else
+            echo "Error: Unknown environment: ${{ inputs.environment }}"
+            exit 1
+          fi
+
+          chmod 600 ~/.kube/config
+          echo "Kubeconfig has been set up for ${{ inputs.environment }} environment"
+
+      # - name: Install Helm
+      #   uses: azure/setup-helm@v3
+      #   with:
+      #     version: "v3.9.0"
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.30.5"
+        id: install
+
+      # - name: Login to Helm registry
+      #   run: |
+      #     echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io/forus-coop --username ${{ github.repository_owner }} --password-stdin
+
+      # - name: Debug kubeconfig
+      #   run: |
+      #     # Check if kubeconfig exists and is readable
+      #     ls -la ~/.kube/
+      #     echo "Checking if config file exists:"
+      #     test -f ~/.kube/config && echo "~/.kube/config exists" || echo "~/.kube/config does not exist"
+      #     echo "Absolute path of kubeconfig:"
+      #     realpath ~/.kube/config
+      #     test -f /home/ec2-user/.kube/config && echo "/home/ec2-user/.kube/config exists" || echo "/home/ec2-user/.kube/config does not exist"
+      #     echo "Current working directory:"
+      #     pwd
+      #     # Print the KUBECONFIG environment variable
+      #     echo "KUBECONFIG env var: $KUBECONFIG"
+      #     # Export the KUBECONFIG variable explicitly
+      #     export KUBECONFIG=~/.kube/config
+      #     echo "Set KUBECONFIG to: $KUBECONFIG"
+
+      - name: Deploy with Flux
+        run: |
+          # Explicitly set KUBECONFIG environment variable
+          export KUBECONFIG=~/.kube/config
+
+          kubectl create configmap ${{ steps.format-app-name.outputs.formatted_app }}-version -n flux-system \
+            --from-literal=app_version=${{ inputs.image_tag }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+          
+      # Run with explicit path to kubeconfig
+      # helm upgrade ${{ steps.format-app-name.outputs.formatted_app }} ${{ inputs.helm_chart }} \
+      #   --install \
+      #   --namespace=${{ inputs.namespace }} \
+      #   --set image.tag=${{ inputs.image_tag }} \
+      #   --values=${{ inputs.helm_values_file }} \
+      #   --kubeconfig=$(realpath ~/.kube/config)
