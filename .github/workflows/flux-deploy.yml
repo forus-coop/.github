@@ -104,7 +104,7 @@ jobs:
             -f ref=${{ inputs.image_tag }} \
             -f environment=${{ inputs.environment }} \
             -f description="Deploying commit ${{ inputs.image_tag }} to ${{ inputs.environment }}" \
-            -F required_contexts='[]' \
+            -f required_contexts\[\] \
             --jq '.id')
           echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
 
