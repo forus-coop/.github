@@ -86,12 +86,15 @@ jobs:
 
           chmod 600 ~/.kube/config
           echo "Kubeconfig has been set up for ${{ inputs.environment }} environment"
-
+      - name: Install GH
+        id: install-gh
+        run: |
+          sudo yum install gh -y
+          gh auth login
+          
       - name: Create Deployment
         id: create-deployment
         run: |
-          yum install gh -y
-          gh auth login
           DEPLOYMENT_ID=$(gh api repos/${{ github.event.repository.name }}/deployments \
             -X POST \
             -f ref=${{ inputs.image_tag }} \
