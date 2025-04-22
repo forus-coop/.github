@@ -34,6 +34,8 @@ on:
 
 jobs:
   deploy:
+    permissions:
+      deployments: write
     runs-on:
       group: ${{ inputs.environment }}
     steps:
