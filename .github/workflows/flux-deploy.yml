@@ -98,7 +98,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          DEPLOYMENT_ID=$(gh api repos/${{ github.event.repository.name }}/deployments \
+          DEPLOYMENT_ID=$(gh api /repos/forus-coop/${{ github.event.repository.name }}/deployments \
             -X POST \
             -f ref=${{ inputs.image_tag }} \
             -f environment=${{ inputs.environment }} \
@@ -127,7 +127,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh api repos/${{ github.event.repository.name }}/deployments/${{ steps.create-deployment.outputs.deployment_id }}/statuses \
+          gh api /repos/forus-coop/${{ github.event.repository.name }}/deployments/${{ steps.create-deployment.outputs.deployment_id }}/statuses \
             -X POST \
             -f state=success \
             -f log_url=https://github.com/${{ github.event.repository.name }}/actions/runs/${{ github.run_id }}
