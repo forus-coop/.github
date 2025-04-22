@@ -90,7 +90,7 @@ jobs:
       - name: Create Deployment
         id: create-deployment
         run: |
-          apt-get install gh
+          yum install gh -y
           gh auth login
           DEPLOYMENT_ID=$(gh api repos/${{ github.event.repository.name }}/deployments \
             -X POST \
