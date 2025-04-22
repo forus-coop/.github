@@ -1,5 +1,6 @@
 name: Flux Deploy
-
+permissions:
+  deployments: write
 on:
   workflow_call:
     inputs:
@@ -34,8 +35,6 @@ on:
 
 jobs:
   deploy:
-    permissions:
-      deployments: write
     runs-on:
       group: ${{ inputs.environment }}
     steps:
