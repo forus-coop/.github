@@ -36,12 +36,8 @@ jobs:
   deploy:
     runs-on:
       group: ${{ inputs.environment }}
-    environment: ${{ inputs.environment }}
-
     steps:
-      # - name: Checkout code
-      #   uses: actions/checkout@v4
-
+      
       - name: Format app name (repository name)
         id: format-app-name
         run: |
@@ -91,38 +87,26 @@ jobs:
           chmod 600 ~/.kube/config
           echo "Kubeconfig has been set up for ${{ inputs.environment }} environment"
 
-      # - name: Install Helm
-      #   uses: azure/setup-helm@v3
-      #   with:
-      #     version: "v3.9.0"
-      #     token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install GitHub CLI
+        uses: cli/cli-action@v2
+
+      - name: Create Deployment
+        id: create-deployment
+        run: |
+          DEPLOYMENT_ID=$(gh api repos/${{ github.event.repository.name }}/deployments \
+            -X POST \
+            -f ref=${{ inputs.image_tag }} \
+            -f environment=${{ inputs.environment }} \
+            -f description="Deploying commit ${{ inputs.image_tag }} to ${{ inputs.environment }}" \
+            -F required_contexts='[]' \
+            --jq '.id')
+          echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
         with:
           version: "v1.30.5"
         id: install
-
-      # - name: Login to Helm registry
-      #   run: |
-      #     echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io/forus-coop --username ${{ github.repository_owner }} --password-stdin
-
-      # - name: Debug kubeconfig
-      #   run: |
-      #     # Check if kubeconfig exists and is readable
-      #     ls -la ~/.kube/
-      #     echo "Checking if config file exists:"
-      #     test -f ~/.kube/config && echo "~/.kube/config exists" || echo "~/.kube/config does not exist"
-      #     echo "Absolute path of kubeconfig:"
-      #     realpath ~/.kube/config
-      #     test -f /home/ec2-user/.kube/config && echo "/home/ec2-user/.kube/config exists" || echo "/home/ec2-user/.kube/config does not exist"
-      #     echo "Current working directory:"
-      #     pwd
-      #     # Print the KUBECONFIG environment variable
-      #     echo "KUBECONFIG env var: $KUBECONFIG"
-      #     # Export the KUBECONFIG variable explicitly
-      #     export KUBECONFIG=~/.kube/config
-      #     echo "Set KUBECONFIG to: $KUBECONFIG"
 
       - name: Deploy with Flux
         run: |
@@ -131,12 +115,12 @@ jobs:
 
           kubectl create configmap ${{ steps.format-app-name.outputs.formatted_app }}-version -n flux-system \
             --from-literal=app_version=${{ inputs.image_tag }} \
+            --from-literal=deployment_id=${{ steps.create-deployment.outputs.deployment_id }} \
             --dry-run=client -o yaml | kubectl apply -f -
-          
-      # Run with explicit path to kubeconfig
-      # helm upgrade ${{ steps.format-app-name.outputs.formatted_app }} ${{ inputs.helm_chart }} \
-      #   --install \
-      #   --namespace=${{ inputs.namespace }} \
-      #   --set image.tag=${{ inputs.image_tag }} \
-      #   --values=${{ inputs.helm_values_file }} \
-      #   --kubeconfig=$(realpath ~/.kube/config)
+
+      - name: Mark deployment as successful
+        run: |
+          gh api repos/${{ github.event.repository.name }}/deployments/${{ steps.create-deployment.outputs.deployment_id }}/statuses \
+            -X POST \
+            -f state=success \
+            -f log_url=https://github.com/${{ github.event.repository.name }}/actions/runs/${{ github.run_id }}
