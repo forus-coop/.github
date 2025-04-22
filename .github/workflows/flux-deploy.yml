@@ -87,7 +87,6 @@ jobs:
           chmod 600 ~/.kube/config
           echo "Kubeconfig has been set up for ${{ inputs.environment }} environment"
 
-      - uses: actions4gh/setup-gh@v1
       - name: Create Deployment
         id: create-deployment
         run: |
@@ -116,7 +115,6 @@ jobs:
             --from-literal=deployment_id=${{ steps.create-deployment.outputs.deployment_id }} \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      - uses: actions4gh/setup-gh@v1
       - name: Mark deployment as successful
         run: |
           gh api repos/${{ github.event.repository.name }}/deployments/${{ steps.create-deployment.outputs.deployment_id }}/statuses \
