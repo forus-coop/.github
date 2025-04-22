@@ -90,6 +90,8 @@ jobs:
       - name: Create Deployment
         id: create-deployment
         run: |
+          apt-get install gh
+          gh auth login
           DEPLOYMENT_ID=$(gh api repos/${{ github.event.repository.name }}/deployments \
             -X POST \
             -f ref=${{ inputs.image_tag }} \
