@@ -92,10 +92,11 @@ jobs:
           type -p yum-config-manager >/dev/null || sudo yum install yum-utils
           sudo yum-config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
           sudo yum install gh -y
-          gh auth login
           
       - name: Create Deployment
         id: create-deployment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           DEPLOYMENT_ID=$(gh api repos/${{ github.event.repository.name }}/deployments \
             -X POST \
@@ -123,6 +124,8 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Mark deployment as successful
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh api repos/${{ github.event.repository.name }}/deployments/${{ steps.create-deployment.outputs.deployment_id }}/statuses \
             -X POST \
