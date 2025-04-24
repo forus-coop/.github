@@ -125,7 +125,7 @@ jobs:
           export KUBECONFIG=~/.kube/config
 
           kubectl create configmap ${{ steps.format-app-name.outputs.formatted_app }}-version -n flux-system \
-            --from-literal=${{ key_name }}=${{ inputs.image_tag }} \
+            --from-literal=${{ inputs.key_name }}=${{ inputs.image_tag }} \
             --from-literal=deployment_id=${{ steps.create-deployment.outputs.deployment_id }} \
             --dry-run=client -o yaml | kubectl apply -f -
 
