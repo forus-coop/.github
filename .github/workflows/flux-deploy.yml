@@ -8,6 +8,11 @@ on:
         description: "Environment to deploy to (sandbox, staging, production)"
         required: true
         type: string
+      key_name:
+        description: "Name of the config key to create"
+        required: false
+        type: string
+        default: "app_version"
       app_name:
         description: "Name of the app to deploy"
         required: false
@@ -120,7 +125,7 @@ jobs:
           export KUBECONFIG=~/.kube/config
 
           kubectl create configmap ${{ steps.format-app-name.outputs.formatted_app }}-version -n flux-system \
-            --from-literal=app_version=${{ inputs.image_tag }} \
+            --from-literal=${{ key_name }}=${{ inputs.image_tag }} \
             --from-literal=deployment_id=${{ steps.create-deployment.outputs.deployment_id }} \
             --dry-run=client -o yaml | kubectl apply -f -
 
