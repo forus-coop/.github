@@ -48,7 +48,7 @@ jobs:
         id: format-app-name
         run: |
           # Replace underscores and other non-hyphen characters with hyphens
-          ORIGINAL_REPO="${{ github.event.repository.name }}"
+          ORIGINAL_REPO="${{ inputs.app_name }}"
           FORMATTED_APP=$(echo "$ORIGINAL_REPO" | tr '_' '-' | tr '[:upper:]' '[:lower:]')
           echo "formatted_app=$FORMATTED_APP" >> $GITHUB_OUTPUT
           echo "Original repository name: $ORIGINAL_REPO, Formatted app name: $FORMATTED_APP"
