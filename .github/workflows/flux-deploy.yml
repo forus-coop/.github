@@ -98,21 +98,45 @@ jobs:
           type -p yum-config-manager >/dev/null || sudo yum install yum-utils
           sudo yum-config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
           sudo yum install gh -y
-          
       - name: Create Deployment
         id: create-deployment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          DEPLOYMENT_ID=$(gh api /repos/forus-coop/${{ github.event.repository.name }}/deployments \
-            -X POST \
-            -f ref=${{ inputs.image_tag }} \
-            -f environment=${{ inputs.environment }} \
-            -f auto_merge=false \
-            -f description="Deploying commit ${{ inputs.image_tag }} to ${{ inputs.environment }}" \
-            -f required_contexts\[\] \
-            --jq '.id')
-          echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          REF="${{ inputs.image_tag }}"
+          ENVIRONMENT="${{ inputs.environment }}"
+          DESCRIPTION="Deploying commit ${REF} to ${ENVIRONMENT}"
+      
+          DEPLOYMENT_ID=$(
+            gh api /repos/forus-coop/${{ github.event.repository.name }}/deployments \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              --input - --jq '.id' <<EOF
+              {
+                "ref": "${REF}",
+                "environment": "${ENVIRONMENT}",
+                "description": "${DESCRIPTION}",
+                "auto_merge": false,
+                "required_contexts": []
+              }
+              EOF
+          )
+          echo "deployment_id=${DEPLOYMENT_ID}" >> "$GITHUB_OUTPUT"
+
+      # - name: Create Deployment
+      #   id: create-deployment
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: |
+      #     DEPLOYMENT_ID=$(gh api /repos/forus-coop/${{ github.event.repository.name }}/deployments \
+      #       -X POST \
+      #       -f ref=${{ inputs.image_tag }} \
+      #       -f environment=${{ inputs.environment }} \
+      #       -f auto_merge=false \
+      #       -f description="Deploying commit ${{ inputs.image_tag }} to ${{ inputs.environment }}" \
+      #       -f required_contexts\[\] \
+      #       --jq '.id')
+      #     echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
