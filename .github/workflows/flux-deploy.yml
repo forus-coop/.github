@@ -92,12 +92,14 @@ jobs:
 
           chmod 600 ~/.kube/config
           echo "Kubeconfig has been set up for ${{ inputs.environment }} environment"
+
       - name: Install GH
         id: install-gh
         run: |
           type -p yum-config-manager >/dev/null || sudo yum install yum-utils
           sudo yum-config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
           sudo yum install gh -y
+
       - name: Create Deployment
         id: create-deployment
         env:
@@ -106,21 +108,21 @@ jobs:
           REF="${{ inputs.image_tag }}"
           ENVIRONMENT="${{ inputs.environment }}"
           DESCRIPTION="Deploying commit ${REF} to ${ENVIRONMENT}"
-      
+
+          payload=$(jq -n \
+            --arg ref "$REF" \
+            --arg env "$ENVIRONMENT" \
+            --arg desc "$DESCRIPTION" \
+            '{ref:$ref, environment:$env, description:$desc, auto_merge:false, required_contexts:[]}'
+          )
+
           DEPLOYMENT_ID=$(
             gh api /repos/forus-coop/${{ github.event.repository.name }}/deployments \
               -X POST \
               -H "Accept: application/vnd.github+json" \
-              --input - --jq '.id' <<EOF
-              {
-                "ref": "${REF}",
-                "environment": "${ENVIRONMENT}",
-                "description": "${DESCRIPTION}",
-                "auto_merge": false,
-                "required_contexts": []
-              }
-              EOF
+              --input - --jq '.id' <<< "$payload"
           )
+
           echo "deployment_id=${DEPLOYMENT_ID}" >> "$GITHUB_OUTPUT"
 
       # - name: Create Deployment
