@@ -108,6 +108,7 @@ jobs:
             -X POST \
             -f ref=${{ inputs.image_tag }} \
             -f environment=${{ inputs.environment }} \
+            -f auto_merge=false \
             -f description="Deploying commit ${{ inputs.image_tag }} to ${{ inputs.environment }}" \
             -f required_contexts\[\] \
             --jq '.id')
