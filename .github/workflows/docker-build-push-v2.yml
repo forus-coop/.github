@@ -76,7 +76,7 @@ jobs:
         with:
           aws-region: ${{ inputs.aws_region }}
           # Prefer OIDC; caller can supply AWS_ROLE_TO_ASSUME as a secret.
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
 
       - name: Login to Amazon ECR
         id: login-ecr
