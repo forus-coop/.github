@@ -1,0 +1,157 @@
+name: Docker Build and Push
+
+on:
+  workflow_call:
+    inputs:
+      docker_build_dir:
+        description: "Directory containing the Dockerfile and build context"
+        required: false
+        type: string
+        default: "."
+      dockerfile_path:
+        description: "Path to the Dockerfile relative to the docker_build_dir"
+        required: false
+        type: string
+        default: "Dockerfile"
+      image_tag:
+        description: "Primary tag for the Docker image (defaults to commit SHA)"
+        required: false
+        type: string
+        default: ${{ github.sha }}
+      ecr_repository:
+        description: "Name of the ECR repository"
+        required: false
+        type: string
+        default: ${{ github.event.repository.name }}
+      aws_region:
+        description: "AWS region for ECR"
+        required: false
+        type: string
+        default: "us-west-2"
+      runner_group:
+        description: "Runner group to use for building Docker images"
+        required: false
+        type: string
+        default: "sandbox"
+      platforms:
+        description: "Target platforms for the image"
+        required: false
+        type: string
+        default: "linux/amd64"
+    secrets:
+      SECRET_KEY_BASE:
+        required: false
+      # Optional override if private gems live outside current org
+      GH_PACKAGES_TOKEN:
+        required: false
+      # Optional OIDC role if caller wants to pass it as a secret
+      AWS_ROLE_TO_ASSUME:
+        required: false
+    outputs:
+      image_uri:
+        description: "Full URI of the pushed image"
+        value: ${{ jobs.build-push.outputs.image_uri }}
+
+jobs:
+  build-push:
+    runs-on:
+      group: ${{ inputs.runner_group }}
+    permissions:
+      contents: read
+      id-token: write   # needed for OIDC if role-to-assume is provided
+    outputs:
+      image_uri: ${{ steps.build-image.outputs.image_uri }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Keep your original behavior: build exactly from the ref matching image_tag
+          # (If image_tag is a SHA/branch/tag; callers can override)
+          ref: ${{ inputs.image_tag }}
+          fetch-depth: 1
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ inputs.aws_region }}
+          # Prefer OIDC; caller can supply AWS_ROLE_TO_ASSUME as a secret.
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Format ECR repository name
+        id: format-repo-name
+        run: |
+          ORIGINAL_REPO="${{ inputs.ecr_repository }}"
+          FORMATTED_REPO=$(echo "$ORIGINAL_REPO" | tr '_.' '-' | tr '[:upper:]' '[:lower:]')
+          echo "formatted_repo=$FORMATTED_REPO" >> $GITHUB_OUTPUT
+          echo "Original repository name: $ORIGINAL_REPO, Formatted: $FORMATTED_REPO"
+
+      - name: Ensure ECR repository exists
+        env:
+          AWS_REGION: ${{ inputs.aws_region }}
+          ECR_REPOSITORY: ${{ steps.format-repo-name.outputs.formatted_repo }}
+        run: |
+          aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" >/dev/null 2>&1 || \
+          aws ecr create-repository --repository-name "$ECR_REPOSITORY" >/dev/null
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract Docker metadata (tags & labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.login-ecr.outputs.registry }}/${{ steps.format-repo-name.outputs.formatted_repo }}
+          tags: |
+            # Always tag with provided image_tag
+            type=raw,value=${{ inputs.image_tag }}
+            # Also add branch/tag convenience tags if ref is a branch or tag
+            type=ref,event=branch
+            type=ref,event=tag
+            # Add 'latest' when building from main
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+          labels: |
+            org.opencontainers.image.source=${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Build and push image to Amazon ECR
+        id: build-image
+        uses: docker/build-push-action@v5
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ steps.format-repo-name.outputs.formatted_repo }}
+        with:
+          context: ${{ inputs.docker_build_dir }}
+          file: ${{ inputs.docker_build_dir }}/${{ inputs.dockerfile_path }}
+          platforms: ${{ inputs.platforms }}
+
+          # We are a reusable "build & push" action, so push by default
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+          # BuildKit cache (huge speedup on PRs and subsequent builds)
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+          # Pass Bundler secrets for rubygems.pkg.github.com
+          # - Use GH_PACKAGES_TOKEN if provided; otherwise fall back to GITHUB_TOKEN
+          secrets: |
+            "GITHUB_USER=x-access-token"
+            "GITHUB_TOKEN=${{ secrets.GH_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}"
+            "SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE || 'dummy-key-for-build' }}"
+
+      - name: Set output (image_uri)
+        id: output
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ steps.format-repo-name.outputs.formatted_repo }}
+          # Prefer the primary tag input as the advertised output
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          echo "image_uri=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
