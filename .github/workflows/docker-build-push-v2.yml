@@ -144,6 +144,7 @@ jobs:
             "GITHUB_USER=x-access-token"
             "GITHUB_TOKEN=${{ secrets.GH_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}"
             "SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE || 'dummy-key-for-build' }}"
+            "SIDEKIQ_PRO_KEY=${{ secrets.SIDEKIQ_PRO_KEY }}"
 
       - name: Set output (image_uri)
         id: output
