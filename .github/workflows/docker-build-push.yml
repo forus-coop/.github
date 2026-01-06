@@ -87,6 +87,7 @@ jobs:
           ECR_REPOSITORY: ${{ steps.format-repo-name.outputs.formatted_repo }}
           IMAGE_TAG: ${{ inputs.image_tag }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SIDEKIQ_PRO_KEY: ${{ secrets.SIDEKIQ_PRO_KEY }}
           SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE || 'dummy-key-for-build' }}
           APP_REVISION: ${{ inputs.image_tag }}
         run: |
@@ -99,6 +100,7 @@ jobs:
             --no-cache \
             --progress=plain \
             --platform linux/amd64 \
+            --secret id=SIDEKIQ_PRO_KEY \
             --secret id=GITHUB_TOKEN \
             --secret id=SECRET_KEY_BASE \
             --provenance=false \
