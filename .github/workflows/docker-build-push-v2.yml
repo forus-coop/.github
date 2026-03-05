@@ -70,6 +70,7 @@ jobs:
           # (If image_tag is a SHA/branch/tag; callers can override)
           ref: ${{ inputs.image_tag }}
           fetch-depth: 1
+          submodules: recursive
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
