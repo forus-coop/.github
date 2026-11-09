@@ -1,0 +1,17 @@
+name: Reusable workflow tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  docker-config-isolation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Verify overlapping registry logout isolation
+        run: python3 tests/docker-config-isolation.py

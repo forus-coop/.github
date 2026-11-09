@@ -66,6 +66,17 @@ jobs:
           # Or use role-to-assume with OIDC
           # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
 
+      # Several runner services can share an OS user and HOME. Their ECR
+      # post-job logout must not remove another build's registry credentials.
+      # RUNNER_TEMP is cleaned by the runner after post-job actions finish.
+      - name: Isolate job Docker configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          docker_config="$(mktemp -d "$RUNNER_TEMP/docker-config.XXXXXX")"
+          printf 'DOCKER_CONFIG=%s\n' "$docker_config" >> "$GITHUB_ENV"
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2

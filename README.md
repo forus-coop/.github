@@ -184,6 +184,17 @@ Ensure that you have self-hosted runners set up in the following runner groups:
 - `staging` - For staging environment
 - `production` - For production environment
 
+`docker-build-push.yml` gives each build a private Docker configuration directory
+under `RUNNER_TEMP` before registry login and Buildx setup. ECR post-job logout
+then affects only that job, even when runner services share an OS user and home.
+The runner removes its temporary files after post-job cleanup. Existing IAM,
+registry selection and build inputs are unchanged. This isolates concurrent
+Docker state; it does not change the shared host's trust boundary.
+
+Run the credential-isolation regression with `python3 tests/docker-config-isolation.py`.
+It executes the workflow's setup shell and the real Docker logout command using
+synthetic temporary credentials, without a Docker daemon or AWS access.
+
 ### Secrets
 
 The workflows require the following secrets to be set at the organization or repository level:
