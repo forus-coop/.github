@@ -54,7 +54,7 @@ jobs:
           echo "Original repository name: $ORIGINAL_REPO, Formatted app name: $FORMATTED_APP"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-region: ${{ inputs.aws_region }}
           # Note: You'll need to set these as secrets or use OIDC
@@ -141,7 +141,7 @@ jobs:
       #     echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
 
       - name: Install kubectl
-        uses: azure/setup-kubectl@v4
+        uses: azure/setup-kubectl@v5
         with:
           version: "v1.30.5"
         id: install
